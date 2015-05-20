@@ -1,0 +1,20 @@
+{
+  "name": "yobot",
+  "version": "0.0.0",
+  "description": "",
+  "main": "cli.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "yobot": "cli.js"
+  },
+  "author": "R.J. Steinert",
+  "license": "ISC",
+  "dependencies": {
+    "replace": "^0.3.0",
+    "commander": "^2.8.1",
+    "underscore": "^1.8.3",
+    "inquirer": "^0.8.4"
+  }
+}
