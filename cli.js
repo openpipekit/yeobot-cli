@@ -29,8 +29,8 @@ program.parse(process.argv);
 
 // Check for required repository value
 if (typeof repositoryValue === 'undefined') {
-   console.error('no repository given');
-   process.exit(1);
+  console.error('no repository given');
+  process.exit(1);
 }
 else {
   generator.repository = repositoryValue
@@ -55,6 +55,18 @@ var fetchGen = function(callback) {
     if (err) return callback(err)
     callback(null) 
   })
+}
+
+var cleanGen = function(callback) { 
+  if (program.keepGitRepo !== true) {
+    exec('rm -rf ' + generator.path + '/.git', function(err, stderr, stdout) {
+      if (err) return callback(err)
+      callback(null) 
+    })
+  }
+  else {
+    callback(null) 
+  }
 }
 
 var parseGen = function(callback) {
@@ -109,14 +121,16 @@ var recursiveFindAndReplace = function(variables, path, callback) {
 // GO!
 fetchGen(function(err) {
   if (err) return console.log(err)
-  parseGen(function(err, gen) {
-    if (err) return console.log(err)
-    console.log(generator.statement)
-    var questions = generateQuestions(generator.variables)
-    inquirer.prompt(questions, function(answers) {
-      recursiveFindAndReplace(answers, generator.path, function(err) {
-        if (err) return console.log(err)
-        console.log('Done.')
+  cleanGen(function(err) {
+    parseGen(function(err, gen) {
+      if (err) return console.log(err)
+      console.log(generator.statement)
+      var questions = generateQuestions(generator.variables)
+      inquirer.prompt(questions, function(answers) {
+        recursiveFindAndReplace(answers, generator.path, function(err) {
+          if (err) return console.log(err)
+          console.log('Done.')
+        })
       })
     })
   })
