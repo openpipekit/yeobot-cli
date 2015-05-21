@@ -1,5 +1,5 @@
 {
-  "name": "yobot",
+  "name": "yeobot",
   "version": "0.0.0",
   "description": "",
   "main": "cli.js",
@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {
-    "yobot": "cli.js"
+    "yeobot": "cli.js"
   },
   "author": "R.J. Steinert",
   "license": "ISC",
