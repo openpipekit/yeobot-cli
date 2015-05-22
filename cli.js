@@ -10,48 +10,50 @@ var exec = require('child_process').exec;
 
 var generator = {
   repository: '',
-  path: '',
+  destination: '',
   statement: '',
-  variables: []
+  variables: {}
 }
 
 program
   .version('0.0.0')
-  .arguments('<repository> [destination]')
-  .option('-v, --verbose')
-  .option('-k, --keep-git-repo', 'If used the .git folder will not be cleaned from the generated folder')
-  .action(function (repository, destination) {
-    repositoryValue = repository;
-    destinationValue = destination;
-  });
-
-program.parse(process.argv);
+  .option('--repository <repository>')
+  .option('--destination <destination>')
+  .option('--variables <variables>', 'A JSON object to feed into the templates. You must provide all variables.')
+  .option('--keep-git-repo', 'If used the .git folder will not be cleaned from the generated folder')
+  .parse(process.argv);
 
 // Check for required repository value
-if (typeof repositoryValue === 'undefined') {
+if (typeof program.repository === 'undefined') {
   console.error('no repository given');
   process.exit(1);
 }
 else {
-  generator.repository = repositoryValue
+  generator.repository = program.repository
 }
 
-// Determine path
-if (typeof destinationValue === 'undefined') {
-  generator.path = process.cwd()
+// Determine destination
+if (typeof program.destination === 'undefined') {
+  generator.destination = process.cwd()
 }
 else if (destinationValue.substr(0, 1) === '/') {
-  generator.path = destinationValue 
+  generator.destination = program.destination 
 } 
-else if (destinationValue.substr(0, 1) === '.') {
-  generator.path = process.cwd() + destinationValue.substr(1, destinationValue.length) 
+else if (program.destination.substr(0, 1) === '.') {
+  generator.destination = process.cwd() + destinationValue.substr(1, program.destination.length) 
 }
 else { 
-  generator.path = process.cwd() + '/' + destinationValue
+  generator.destination = process.cwd() + '/' + program.destination
 }
 
+if (program.variables) {
+  generator.variables = JSON.parse(program.variables)
+}
+
+//console.log(generator)
+
 var fetchGen = function(callback) { 
-  exec('git clone ' + generator.repository + ' ' + generator.path, function(err, stderr, stdout) {
+  exec('git clone ' + generator.repository + ' ' + generator.destination, function(err, stderr, stdout) {
     if (err) return callback(err)
     callback(null) 
   })
@@ -59,7 +61,7 @@ var fetchGen = function(callback) {
 
 var cleanGen = function(callback) { 
   if (program.keepGitRepo !== true) {
-    exec('rm -rf ' + generator.path + '/.git', function(err, stderr, stdout) {
+    exec('rm -rf ' + generator.destination + '/.git', function(err, stderr, stdout) {
       if (err) return callback(err)
       callback(null) 
     })
@@ -70,7 +72,7 @@ var cleanGen = function(callback) {
 }
 
 var parseGen = function(callback) {
-  fs.readFile(generator.path + '/README.md', 'utf8', function (err,data) {
+  fs.readFile(generator.destination + '/README.md', 'utf8', function (err,data) {
     if (err) return callback(err)
     var lines = data.split('\n')
     var read = false
@@ -92,7 +94,6 @@ var generateQuestions = function(variables) {
       name: variable,
       message: variable + '?',
       validate: function( value ) {
-        var pass = value.match(/^([01]{1})?[\-\.\s]?\(?(\d{3})\)?[\-\.\s]?(\d{3})[\-\.\s]?(\d{4})\s?((?:#|ext\.?\s?|x\.?\s?){1}(?:\d+)?)?$/i);
         if (value) {
           return true;
         } 
@@ -105,12 +106,12 @@ var generateQuestions = function(variables) {
   return questions
 }
 
-var recursiveFindAndReplace = function(variables, path, callback) {
+var recursiveFindAndReplace = function(variables, destination, callback) {
   _.each(variables, function(value, key) {
     replace({
       regex: key,
       replacement: value,
-      paths: [path],
+      paths: [destination],
       recursive: true,
       silent: true
     })
@@ -122,16 +123,27 @@ var recursiveFindAndReplace = function(variables, path, callback) {
 fetchGen(function(err) {
   if (err) return console.log(err)
   cleanGen(function(err) {
+    if (err) return console.log(err)
     parseGen(function(err, gen) {
       if (err) return console.log(err)
+      console.log('')
       console.log(generator.statement)
-      var questions = generateQuestions(generator.variables)
-      inquirer.prompt(questions, function(answers) {
-        recursiveFindAndReplace(answers, generator.path, function(err) {
+      console.log('')
+      if (_.keys(generator.variables.length).length > 0) {
+        recursiveFindAndReplace(generator.variables, generator.destination, function(err) {
           if (err) return console.log(err)
           console.log('Done.')
         })
-      })
+      }
+      else {
+        var questions = generateQuestions(generator.variables)
+        inquirer.prompt(questions, function(answers) {
+          recursiveFindAndReplace(answers, generator.destination, function(err) {
+            if (err) return console.log(err)
+            console.log('Done.')
+          })
+        })
+      }
     })
   })
 })
