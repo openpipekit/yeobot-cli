@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+var log = console.log
+
 var _ = require('underscore')
 var fs = require('fs')
 var inquirer = require("inquirer");
@@ -49,8 +51,6 @@ else {
 if (program.variables) {
   generator.variables = JSON.parse(program.variables)
 }
-
-//console.log(generator)
 
 var fetchGen = function(callback) { 
   exec('git clone ' + generator.repository + ' ' + generator.destination, function(err, stderr, stdout) {
@@ -120,22 +120,29 @@ var recursiveFindAndReplace = function(variables, destination, callback) {
 
 
 // GO!
-fetchGen(function(err) {
-  if (err) return console.log(err)
-  cleanGen(function(err) {
+// If we have variables then we are ready to find and replace else we need to ask
+if ((_.keys(generator.variables)).length > 0) {
+  fetchGen(function(err) {
     if (err) return console.log(err)
-    parseGen(function(err, gen) {
+    cleanGen(function(err) {
       if (err) return console.log(err)
-      console.log('')
-      console.log(generator.statement)
-      console.log('')
-      if (_.keys(generator.variables.length).length > 0) {
-        recursiveFindAndReplace(generator.variables, generator.destination, function(err) {
-          if (err) return console.log(err)
-          console.log('Done.')
-        })
-      }
-      else {
+      recursiveFindAndReplace(generator.variables, generator.destination, function(err) {
+        if (err) return console.log(err)
+        console.log('Done.')
+      })
+    })
+  })
+}
+else {
+  fetchGen(function(err) {
+    if (err) return console.log(err)
+    cleanGen(function(err) {
+      if (err) return console.log(err)
+      parseGen(function(err) {
+        if (err) return console.log(err)
+        console.log('')
+        console.log(generator.statement)
+        console.log('')
         var questions = generateQuestions(generator.variables)
         inquirer.prompt(questions, function(answers) {
           recursiveFindAndReplace(answers, generator.destination, function(err) {
@@ -143,8 +150,7 @@ fetchGen(function(err) {
             console.log('Done.')
           })
         })
-      }
+      })
     })
   })
-})
-
+}
