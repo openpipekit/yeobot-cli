@@ -18,7 +18,7 @@ var generator = {
 }
 
 program
-  .version('0.0.0')
+  .version('0.0.2')
   .option('--repository <repository>')
   .option('--destination <destination>')
   .option('--variables <variables>', 'A JSON object to feed into the templates. You must provide all variables.')
