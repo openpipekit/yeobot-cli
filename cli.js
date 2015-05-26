@@ -48,14 +48,20 @@ else if (program.destination.substr(0, 1) === '.') {
 else { 
   generator.destination = process.cwd() + '/' + program.destination
 }
+
 generator.destinationTmp = generator.destination + '/.yeobot-tmp'
+
+// Generate escaped paths 
+generator.destinationEscaped = generator.destination.replace(' ', '\\ ')
+generator.destinationTmpEscaped = generator.destinationTmp.replace(' ', '\\ ')
 
 if (program.variables) {
   generator.variables = JSON.parse(program.variables)
 }
 
 var fetchGen = function(callback) { 
-  exec('git clone ' + generator.repository + ' ' + generator.destinationTmp, function(err, stderr, stdout) {
+  var cmd = 'git clone ' + generator.repository + ' ' + generator.destinationTmpEscaped
+  exec(cmd, function(err, stderr, stdout) {
     if (err) return callback(err)
     callback(null) 
   })
@@ -63,7 +69,7 @@ var fetchGen = function(callback) {
 
 var cleanGen = function(callback) { 
   if (program.keepGitRepo !== true) {
-    exec('rm -rf ' + generator.destinationTmp + '/.git', function(err, stderr, stdout) {
+    exec('rm -rf ' + generator.destinationTmpEscaped + '/.git', function(err, stderr, stdout) {
       if (err) return callback(err)
       callback(null) 
     })
@@ -123,7 +129,7 @@ var recursiveFindAndReplace = function(variables, destination, callback) {
 
 
 // GO!
-exec('mkdir ' + generator.destinationTmp, function(err, stderr, stdout) {
+exec('mkdir ' + generator.destinationTmpEscaped, function(err, stderr, stdout) {
   // If we have variables then we are ready to find and replace else we need to ask
   if ((_.keys(generator.variables)).length > 0) {
     fetchGen(function(err) {
@@ -132,8 +138,8 @@ exec('mkdir ' + generator.destinationTmp, function(err, stderr, stdout) {
         if (err) return console.log(err)
         recursiveFindAndReplace(generator.variables, generator.destinationTmp, function(err) {
           if (err) return console.log(err)
-          exec('mv ' + generator.destinationTmp + '/* ' + generator.destination, function(err, stderr, stdout) {
-            exec('rm -rf ' + generator.destinationTmp, function(err, stderr, stdout) {
+          exec('mv ' + generator.destinationTmpEscaped + '/* ' + generator.destinationEscaped, function(err, stderr, stdout) {
+            exec('rm -rf ' + generator.destinationTmpEscaped, function(err, stderr, stdout) {
               console.log('Done.')
             })
           })
@@ -155,7 +161,7 @@ exec('mkdir ' + generator.destinationTmp, function(err, stderr, stdout) {
           inquirer.prompt(questions, function(answers) {
             recursiveFindAndReplace(answers, generator.destinationTmp, function(err) {
               if (err) return console.log(err)
-              exec('mv ' + generator.destinationTmp + '/* ' + generator.destination, function(err, stderr, stdout) {
+              exec('mv ' + generator.destinationTmpEscaped + '/* ' + generator.destinationEscaped, function(err, stderr, stdout) {
                 exec('rm -rf ' + generator.destinationTmp, function(err, stderr, stdout) {
                   console.log('Done.')
                 })
