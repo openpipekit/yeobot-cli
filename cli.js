@@ -12,6 +12,7 @@ var exec = require('child_process').exec;
 
 var generator = {
   repository: '',
+  destinationTmp: '',
   destination: '',
   statement: '',
   variables: {}
@@ -47,13 +48,14 @@ else if (program.destination.substr(0, 1) === '.') {
 else { 
   generator.destination = process.cwd() + '/' + program.destination
 }
+generator.destinationTmp = generator.destination + '/.yeobot-tmp'
 
 if (program.variables) {
   generator.variables = JSON.parse(program.variables)
 }
 
 var fetchGen = function(callback) { 
-  exec('git clone ' + generator.repository + ' ' + generator.destination, function(err, stderr, stdout) {
+  exec('git clone ' + generator.repository + ' ' + generator.destinationTmp, function(err, stderr, stdout) {
     if (err) return callback(err)
     callback(null) 
   })
@@ -61,7 +63,7 @@ var fetchGen = function(callback) {
 
 var cleanGen = function(callback) { 
   if (program.keepGitRepo !== true) {
-    exec('rm -rf ' + generator.destination + '/.git', function(err, stderr, stdout) {
+    exec('rm -rf ' + generator.destinationTmp + '/.git', function(err, stderr, stdout) {
       if (err) return callback(err)
       callback(null) 
     })
@@ -72,7 +74,7 @@ var cleanGen = function(callback) {
 }
 
 var parseGen = function(callback) {
-  fs.readFile(generator.destination + '/README.md', 'utf8', function (err,data) {
+  fs.readFile(generator.destinationTmp + '/README.md', 'utf8', function (err,data) {
     if (err) return callback(err)
     var lines = data.split('\n')
     var read = false
@@ -116,41 +118,52 @@ var recursiveFindAndReplace = function(variables, destination, callback) {
       silent: true
     })
   })
+  callback()
 }
 
 
 // GO!
-// If we have variables then we are ready to find and replace else we need to ask
-if ((_.keys(generator.variables)).length > 0) {
-  fetchGen(function(err) {
-    if (err) return console.log(err)
-    cleanGen(function(err) {
+exec('mkdir ' + generator.destinationTmp, function(err, stderr, stdout) {
+  // If we have variables then we are ready to find and replace else we need to ask
+  if ((_.keys(generator.variables)).length > 0) {
+    fetchGen(function(err) {
       if (err) return console.log(err)
-      recursiveFindAndReplace(generator.variables, generator.destination, function(err) {
+      cleanGen(function(err) {
         if (err) return console.log(err)
-        console.log('Done.')
-      })
-    })
-  })
-}
-else {
-  fetchGen(function(err) {
-    if (err) return console.log(err)
-    cleanGen(function(err) {
-      if (err) return console.log(err)
-      parseGen(function(err) {
-        if (err) return console.log(err)
-        console.log('')
-        console.log(generator.statement)
-        console.log('')
-        var questions = generateQuestions(generator.variables)
-        inquirer.prompt(questions, function(answers) {
-          recursiveFindAndReplace(answers, generator.destination, function(err) {
-            if (err) return console.log(err)
-            console.log('Done.')
+        recursiveFindAndReplace(generator.variables, generator.destinationTmp, function(err) {
+          if (err) return console.log(err)
+          exec('mv ' + generator.destinationTmp + '/* ' + generator.destination, function(err, stderr, stdout) {
+            exec('rm -rf ' + generator.destinationTmp, function(err, stderr, stdout) {
+              console.log('Done.')
+            })
           })
         })
       })
     })
-  })
-}
+  }
+  else {
+    fetchGen(function(err) {
+      if (err) return console.log(err)
+      cleanGen(function(err) {
+        if (err) return console.log(err)
+        parseGen(function(err) {
+          if (err) return console.log(err)
+          console.log('')
+          console.log(generator.statement)
+          console.log('')
+          var questions = generateQuestions(generator.variables)
+          inquirer.prompt(questions, function(answers) {
+            recursiveFindAndReplace(answers, generator.destinationTmp, function(err) {
+              if (err) return console.log(err)
+              exec('mv ' + generator.destinationTmp + '/* ' + generator.destination, function(err, stderr, stdout) {
+                exec('rm -rf ' + generator.destinationTmp, function(err, stderr, stdout) {
+                  console.log('Done.')
+                })
+              })
+            })
+          })
+        })
+      })
+    })
+  }
+})
